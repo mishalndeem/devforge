@@ -1,0 +1,2 @@
+frontend: python -m http.server 5500
+backend: uvicorn main:app --reload --port 8000

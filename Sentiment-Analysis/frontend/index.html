@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pulse — Sentiment Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <main class="stage">
+    <header class="masthead">
+      <span class="eyebrow">Sentiment Reader</span>
+      <h1 class="wordmark">Pulse</h1>
+      <p class="subhead">Type a sentence. Watch how it reads.</p>
+    </header>
+
+    <section class="console" aria-label="Sentiment analyzer">
+      <svg class="trace" id="trace" viewBox="0 0 640 120" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="60" x2="640" y2="60" class="trace-baseline" />
+        <path id="tracePath" class="trace-path" d="M0,60 L640,60" />
+      </svg>
+
+      <textarea
+        id="textInput"
+        class="text-input"
+        placeholder="I finally shipped the feature I've been stuck on for weeks…"
+        maxlength="2000"
+        rows="3"
+      ></textarea>
+
+      <div class="console-footer">
+        <span class="char-count"><span id="charCount">0</span> / 2000</span>
+        <button id="analyzeBtn" class="analyze-btn" type="button">
+          <span class="btn-label">Read it</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+      </div>
+    </section>
+
+    <section id="result" class="result" hidden aria-live="polite">
+      <div class="result-badge">
+        <span id="resultEmoji" class="result-emoji">😐</span>
+        <div class="result-text">
+          <span id="resultLabel" class="result-label">Neutral</span>
+          <span id="resultConfidence" class="result-confidence">— confidence n/a</span>
+        </div>
+      </div>
+    </section>
+
+    <p id="errorBox" class="error-box" hidden></p>
+
+    <footer class="foot-note">
+      <span>API</span>
+      <code id="apiTarget">http://localhost:8000/predict</code>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
