@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Larvi — Email &amp; Calendar Agent</title>
+<style>
+  :root{
+    --bg: #0f1520;
+    --panel: #151d2b;
+    --panel-2: #1b2536;
+    --line: #263148;
+    --text: #e8edf5;
+    --muted: #7c8aa3;
+    --amber: #f2b84b;
+    --amber-dim: #8a6a2c;
+    --ok: #6fd68a;
+    --err: #e8697f;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+
+  .shell{ display:grid; grid-template-columns: 1fr 340px; height:100vh; }
+  @media (max-width: 860px){ .shell{ grid-template-columns: 1fr; } .trace{ display:none; } }
+
+  /* ---- header ---- */
+  .topbar{
+    grid-column: 1 / -1;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 22px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .larva{
+    width: 26px; height: 26px; border-radius: 40% 60% 55% 45% / 50% 45% 55% 50%;
+    background: linear-gradient(135deg, var(--amber), #c98f22);
+    box-shadow: 0 0 14px rgba(242,184,75,.35);
+  }
+  .brand h1{ font-size: 16px; margin:0; letter-spacing:.02em; font-weight:600; }
+  .brand span{ color: var(--muted); font-size: 12px; }
+  .status{ display:flex; align-items:center; gap:8px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .dot{ width:8px; height:8px; border-radius:50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.mock{ background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+  /* ---- chat column ---- */
+  .chat-col{ display:flex; flex-direction:column; min-width:0; grid-row: 2; }
+  .messages{ flex:1; overflow-y:auto; padding: 24px; display:flex; flex-direction:column; gap: 16px; }
+  .msg{ max-width: 640px; padding: 12px 16px; border-radius: 14px; line-height:1.5; font-size: 14.5px; white-space: pre-wrap; }
+  .msg.user{ align-self:flex-end; background: var(--amber); color:#1a1305; border-bottom-right-radius:4px; }
+  .msg.bot{ align-self:flex-start; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius:4px; }
+  .msg.system{ align-self:center; color: var(--muted); font-size:12px; font-family: var(--mono); }
+
+  .composer{ padding: 16px 22px; border-top: 1px solid var(--line); background: var(--panel); display:flex; gap:10px; }
+  .composer input{
+    flex:1; background: var(--panel-2); border:1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; color: var(--text); font-size: 14.5px; outline:none;
+  }
+  .composer input:focus{ border-color: var(--amber-dim); }
+  .composer button{
+    background: var(--amber); color:#1a1305; border:none; border-radius:10px; padding: 0 20px;
+    font-weight:600; cursor:pointer; font-size: 14px;
+  }
+  .composer button:disabled{ opacity:.5; cursor:default; }
+
+  .examples{ padding: 0 22px 14px; display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    font-size:12px; color: var(--muted); border:1px dashed var(--line); border-radius: 20px;
+    padding: 6px 12px; cursor:pointer; font-family: var(--mono);
+  }
+  .chip:hover{ color: var(--text); border-color: var(--amber-dim); }
+
+  /* ---- trace panel ---- */
+  .trace{ grid-row: 2; border-left: 1px solid var(--line); background: var(--panel); display:flex; flex-direction:column; }
+  .trace h2{ font-size: 11px; text-transform:uppercase; letter-spacing:.12em; color: var(--muted); margin:0; padding: 16px 18px 8px; }
+  .trace-body{ flex:1; overflow-y:auto; padding: 0 14px 14px; font-family: var(--mono); font-size: 12px; }
+  .step{ border:1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .step .name{ color: var(--amber); font-weight:600; }
+  .step .meta{ color: var(--muted); margin-top:4px; word-break: break-word; }
+  .step .res-ok{ color: var(--ok); }
+  .step .res-err{ color: var(--err); }
+  .trace-empty{ color: var(--muted); padding: 20px 4px; font-family: var(--mono); font-size:12px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="larva"></div>
+      <div>
+        <h1>Larvi <span>autonomous email &amp; calendar agent</span></h1>
+      </div>
+    </div>
+    <div class="status" id="status"><span class="dot" id="statusDot"></span><span id="statusText">checking…</span></div>
+  </div>
+
+  <div class="chat-col">
+    <div class="messages" id="messages">
+      <div class="msg system">Larvi is ready. Try asking it to check your inbox or your calendar.</div>
+    </div>
+    <div class="examples">
+      <div class="chip" data-msg="What meetings do I have tomorrow?">what meetings do I have tomorrow?</div>
+      <div class="chip" data-msg="Summarize my unread emails">summarize my unread emails</div>
+      <div class="chip" data-msg="Find the email from Ahmed about the project meeting and add that meeting to my calendar.">Ahmed's email → calendar</div>
+      <div class="chip" data-msg="Am I free tomorrow at 4 PM?">am I free tomorrow at 4pm?</div>
+    </div>
+    <div class="composer">
+      <input id="input" type="text" placeholder="Ask Larvi to check your email or calendar…" autocomplete="off" />
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+  <div class="trace">
+    <h2>Agent trace</h2>
+    <div class="trace-body" id="trace">
+      <div class="trace-empty">Master Agent → Email/Calendar Agent → tool calls will appear here as Larvi works.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "";
+const sessionId = "web-" + Math.random().toString(36).slice(2, 10);
+const messagesEl = document.getElementById("messages");
+const traceEl = document.getElementById("trace");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function renderTrace(toolCalls) {
+  if (!toolCalls || toolCalls.length === 0) return;
+  const empty = traceEl.querySelector(".trace-empty");
+  if (empty) empty.remove();
+  toolCalls.forEach(call => {
+    const step = document.createElement("div");
+    step.className = "step";
+    const ok = call.result && call.result.success;
+    step.innerHTML = `<div class="name">${call.name}</div>
+      <div class="meta">${JSON.stringify(call.input)}</div>
+      <div class="${ok ? 'res-ok' : 'res-err'}">${ok ? '✓ success' : '✗ ' + ((call.result && call.result.error) || 'failed')}</div>`;
+    traceEl.appendChild(step);
+  });
+  traceEl.scrollTop = traceEl.scrollHeight;
+}
+
+async function sendMessage(text) {
+  if (!text.trim()) return;
+  addMessage("user", text);
+  input.value = "";
+  sendBtn.disabled = true;
+  const thinking = document.createElement("div");
+  thinking.className = "msg bot";
+  thinking.textContent = "…";
+  messagesEl.appendChild(thinking);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  try {
+    const resp = await fetch(API_BASE + "/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, message: text }),
+    });
+    const data = await resp.json();
+    thinking.remove();
+    if (data.error) {
+      addMessage("bot", "Error: " + data.error);
+    } else {
+      addMessage("bot", data.reply);
+      renderTrace(data.tool_calls);
+    }
+  } catch (e) {
+    thinking.remove();
+    addMessage("bot", "Network error talking to Larvi: " + e.message);
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+sendBtn.addEventListener("click", () => sendMessage(input.value));
+input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(input.value); });
+document.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => sendMessage(chip.dataset.msg));
+});
+
+fetch(API_BASE + "/auth/status").then(r => r.json()).then(d => {
+  const dot = document.getElementById("statusDot");
+  const text = document.getElementById("statusText");
+  if (d.mock_mode) {
+    dot.classList.add("mock");
+    text.textContent = "mock mode (demo data)";
+  } else if (d.authenticated) {
+    text.textContent = "connected to Google";
+  } else {
+    text.textContent = "not connected — visit /auth/google/login";
+  }
+}).catch(() => { document.getElementById("statusText").textContent = "status unknown"; });
+</script>
+</body>
+</html>
